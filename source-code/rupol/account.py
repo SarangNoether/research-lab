@@ -91,7 +91,7 @@ def gen_account(public_key,a):
     co = G*a + H*r
 
     ek = dumb25519.random_scalar()
-    s = dumb25519.hash_to_scalar(str(public_key.tpk)+str(public_key.spk)+str(ek))
+    s = dumb25519.hash_to_scalar(str(public_key.tpk)+str(public_key.spk)+str(public_key.X)+str(ek))
     pk = public_key.X + H*s
 
     _ek = ecies.encrypt(public_key.tpk,str(pk)+str(co),str(ek))
@@ -106,7 +106,7 @@ def receive(private_key,account):
     r = dumb25519.Scalar(int(ecies.decrypt(private_key.ssk,str(account.pk)+str(account.co),account._r)))
 
     public_key = stealth.gen_public_key(private_key)
-    s = dumb25519.hash_to_scalar(str(public_key.tpk)+str(public_key.spk)+str(ek))
+    s = dumb25519.hash_to_scalar(str(public_key.tpk)+str(public_key.spk)+str(public_key.X)+str(ek))
 
     if G*a + H*r != account.co:
         raise Exception('Bad account commitment!')
