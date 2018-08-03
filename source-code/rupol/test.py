@@ -38,6 +38,7 @@ class TestDumb25519(unittest.TestCase):
         self.assertEqual(Scalar(1)**2,Scalar(1))
         self.assertEqual(Scalar(0)**1,Scalar(0))
         self.assertEqual(Scalar(0)**2,Scalar(0))
+        self.assertEqual(Scalar(l-1),Scalar(-1))
 
         # test scalar inversion
         self.assertEqual(Scalar(1).invert(),Scalar(1))
