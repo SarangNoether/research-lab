@@ -28,7 +28,8 @@ def commit(h,m,n,d):
     # test that each matrix entry is a Scalar
     for i in range(n+1):
         for j in range(m+1):
-            assert isinstance(M[i][j],dumb25519.Scalar)
+            if not isinstance(M[i][j],dumb25519.Scalar):
+                raise TypeError
 
     # commit to each row
     r = [dumb25519.random_scalar() for i in range(m+1)] # masks
