@@ -140,4 +140,17 @@ class Test(unittest.TestCase):
         sets(rings)
         self.assertEqual(len(rings),0)
 
+    # Test duplicate rins
+    def test_duplicate(self):
+        rings = []
+        rings.append(list('abcde'))
+        rings.append(list('abcde'))
+        rings.append(list('abcde'))
+        rings.append(list('abcde'))
+        rings.append(list('abcde'))
+
+        reaction(rings)
+        sets(rings)
+        self.assertEqual(len(rings),0)
+
 unittest.TextTestRunner(verbosity=2,failfast=True).run(unittest.TestLoader().loadTestsFromTestCase(Test))
