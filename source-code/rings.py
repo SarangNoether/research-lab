@@ -1,4 +1,4 @@
-# Perform a cluster analysis to identify some spent notes
+# Perform a set analysis using clusters to identify some spent notes
 
 import unittest
 import random
@@ -21,7 +21,7 @@ def clip(prunes,rings):
 
     return flag
         
-# Perform a chain reaction
+# Perform a chain reaction, removing 1-rings iteratively
 # IN: list of rings
 # OUT: (none)
 # Note: the removal happens in place
@@ -68,12 +68,11 @@ def cluster(seed,rings):
 
     return size,pile
 
-
-# Perform a cascade attack and remove spent notes
+# Perform a set analysis and remove spent notes
 # IN: set of rings
 # OUT: (none)
 # Note: the removal happens in place
-def cascade(rings):
+def sets(rings):
     done = False
 
     while not done:
@@ -103,9 +102,9 @@ class Test(unittest.TestCase):
 
         with self.assertRaises(Exception):
             reaction(rings)
-            cascade(rings)
+            sets(rings)
 
-    # Test a simple cascade
+    # Test a simple example
     def test_1(self):
         rings = []
         rings.append(list('abcd'))
@@ -115,10 +114,10 @@ class Test(unittest.TestCase):
 
         reaction(rings)
         self.assertEqual(rings,[list('bc'),list('bc')])
-        cascade(rings)
+        sets(rings)
         self.assertEqual(len(rings),0)
 
-    # Test a more complex cascade
+    # Test a more complex example
     def test_2(self):
         rings = []
         rings.append(list('a'))
@@ -138,7 +137,7 @@ class Test(unittest.TestCase):
 
         reaction(rings)
         self.assertEqual(len(rings),8)
-        cascade(rings)
+        sets(rings)
         self.assertEqual(len(rings),0)
 
 unittest.TextTestRunner(verbosity=2,failfast=True).run(unittest.TestLoader().loadTestsFromTestCase(Test))
