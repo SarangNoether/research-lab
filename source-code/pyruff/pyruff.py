@@ -37,7 +37,7 @@ class Output:
         self.CO = G*amount + H*self.mask
         self.sk = SecretKey(random_scalar(),random_scalar())
         self.KI = G*self.sk.r1
-        self.PK = [G*self.sk.r+self.KI,H*self.sk.r]
+        self.PK = [H*self.sk.r+self.KI,G*self.sk.r]
 
     def __str__(self):
         return str(self.amount)+str(self.mask)+str(self.CO)+str(self.sk)+str(self.KI)+str(self.PK)

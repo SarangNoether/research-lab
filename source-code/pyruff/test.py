@@ -6,6 +6,74 @@ import unittest
 import pyruff
 import multisig
 
+# Perform a complete spend test
+def spend(base,exponent,inputs):
+    size = base**exponent # ring size
+
+    sp = pyruff.SpendInput()
+    sp.base = base
+    sp.exponent = exponent
+    
+    # prepare the spent inputs
+    input_list = [pyruff.Output(Scalar(random.randrange(0,2**64-1)))]*inputs
+    output_list = []
+
+    # prepare a destination output and change
+    total_inputs = 0
+    for output in input_list:
+        total_inputs += output.amount.to_int()
+    output0 = random.randrange(0,total_inputs)
+    output1 = total_inputs - output0
+    output_list.append(pyruff.Output(Scalar(output0)))
+    output_list.append(pyruff.Output(Scalar(output1)))
+
+    sp.ii = random.randrange(0,size)
+
+    # prepare input commitments
+    input_commits = []
+    for j in range(inputs):
+        input_commits.append([])
+        for i in range(size):
+            if i == sp.ii:
+                input_commits[j].append(input_list[j].CO)
+            else:
+                input_commits[j].append(random_point())
+
+    # ring commitments
+    sp.CO = []
+    for i in range(size):
+        sp.CO.append(input_commits[0][i])
+        for j in range(1,inputs):
+            sp.CO[i] += input_commits[j][i]
+        for k in range(len(output_list)):
+            sp.CO[i] -= output_list[k].CO
+
+    sp.PK = []
+    sp.sk = []
+    sp.KI = []
+
+    for j in range(inputs):
+        sp.PK.append([])
+        for i in range(size):
+            if i == sp.ii:
+                sp.PK[j].append(input_list[j].PK)
+            else:
+                sp.PK[j].append([random_point(),random_point()])
+        sp.sk.append(input_list[j].sk)
+        sp.KI.append(input_list[j].KI)
+
+    # message
+    sp.m = hash_to_scalar('test message')
+
+    sp.s = Scalar(0)
+    for i in range(inputs):
+        sp.s += input_list[i].mask
+    for i in range(len(output_list)):
+        sp.s -= output_list[i].mask
+
+    sig = pyruff.spend(sp)
+    pyruff.verify(sp.KI,sp.PK,sp.CO,sig.CO1,sp.m,sig)
+
 class TestPyRuff(unittest.TestCase):
     # Test verify1 using a 2x2 matrix
     def test_verify1_2x2(self):
@@ -104,72 +172,15 @@ class TestPyRuff(unittest.TestCase):
         with self.assertRaises(ArithmeticError):
             pyruff.verify2(base,proof2,CO)
 
-    # Perform a complete spend test
-    def test_2_1_1(self):
-        return # NOTE: this test has been manually disabled
-        base = 2
-        exponent = 1
-        inputs = 1
-        size = base**exponent # ring size
-
-        sp = pyruff.SpendInput()
-        sp.base = base
-        sp.exponent = exponent
-        
-        # prepare the spent inputs
-        input_list = [pyruff.Output(Scalar(10))]
-        output_list = []
-
-        # prepare the outputs
-        output_list.append(pyruff.Output(Scalar(4)))
-        output_list.append(pyruff.Output(Scalar(6)))
-
-        sp.ii = random.randrange(0,size)
-
-        # prepare input commitments
-        input_commits = []
-        for j in range(inputs):
-            input_commits.append([])
-            for i in range(size):
-                if i == sp.ii:
-                    input_commits[j].append(input_list[j].CO)
-                else:
-                    input_commits[j].append(random_point())
-
-        # ring commitments
-        sp.CO = []
-        for i in range(size):
-            sp.CO.append(input_commits[0][i])
-            for j in range(1,inputs):
-                sp.CO[i] += input_commits[j][i]
-            for k in range(len(output_list)):
-                sp.CO[i] -= output_list[k].CO
-
-        sp.PK = []
-        sp.sk = []
-        sp.KI = []
-
-        for j in range(inputs):
-            sp.PK.append([])
-            for i in range(size):
-                if i == sp.ii:
-                    sp.PK[j].append(input_list[j].PK)
-                else:
-                    sp.PK[j].append([random_point(),random_point()])
-            sp.sk.append(input_list[j].sk)
-            sp.KI.append(input_list[j].KI)
-
-        # message
-        sp.m = hash_to_scalar('test message')
-
-        sp.s = Scalar(0)
-        for i in range(inputs):
-            sp.s += input_list[i].mask
-        for i in range(len(output_list)):
-            sp.s -= output_list[i].mask
-
-        sig = pyruff.spend(sp)
-        pyruff.verify(sp.KI,sp.PK,sp.CO,sig.CO1,sp.m,sig)
+    # Perform a series of spend tests
+    def test_spend(self):
+        # Each test has parameters (base,exponent,inputs)
+        spend(2,1,1)
+        spend(2,1,2)
+        spend(2,2,1)
+        spend(2,2,2)
+        spend(3,3,1)
+        spend(3,3,2)
 
 class TestMultisig(unittest.TestCase):
     # Verify a signature with 1 key
