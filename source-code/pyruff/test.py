@@ -179,8 +179,6 @@ class TestPyRuff(unittest.TestCase):
         spend(2,1,2)
         spend(2,2,1)
         spend(2,2,2)
-        spend(3,3,1)
-        spend(3,3,2)
 
 class TestMultisig(unittest.TestCase):
     # Verify a signature with 1 key

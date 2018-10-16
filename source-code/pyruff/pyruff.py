@@ -400,9 +400,11 @@ def delta(x,y):
 # INPUT
 #   m: matrix; list of Scalar lists
 #   r: mask; type Scalar
+#   raw: whether to return raw multiexp data; True/False
 # OUTPUT
-#   Point
-def matrix_commit(m,r):
+#   Point (if raw == False)
+#   multiexp data (if raw == True)
+def matrix_commit(m,r,raw=False):
     if not isinstance(r,Scalar):
         raise TypeError
 
@@ -412,18 +414,32 @@ def matrix_commit(m,r):
             if not isinstance(m[i][j],Scalar):
                 raise TypeError
             data.append([hash_to_point('pyruff '+str(i)+' '+str(j)),m[i][j]])
-    return multiexp(data)
+
+    if not raw:
+        return multiexp(data)
+    else:
+        return data
 
 def verify(KI,PK,CO,CO1,m,sig):
     f = F(KI,PK,CO,CO1,m)
     sub_C,sub_f = sub(f)
 
-    multisig.verify(str(sig.sigma1)+str(f),KI,sig.sigma2)
+    data_multisig = multisig.verify(str(sig.sigma1)+str(f),KI,sig.sigma2,True)
+    data_verify2_1 = verify2(sig.base,sig.sigma1,sub_C,True)
 
-    verify2(sig.base,sig.sigma1,sub_C)
+    weight1 = random_scalar()
+    data = data_multisig[:]
+    for i in range(len(data_verify2_1)):
+        data.append([data_verify2_1[i][0],weight1*data_verify2_1[i][1]])
+    if not multiexp(data) == Z:
+        raise ArithmeticError('Failed final check!')
 
-def verify2(base,proof,CO):
-    verify1(proof.B,proof.proof1)
+def verify2(base,proof,CO,raw=False):
+    data = []
+    if not raw:
+        verify1(proof.B,proof.proof1)
+    else:
+        data = verify1(proof.B,proof.proof1,True)
 
     exponent = len(proof.proof1.f_trim)
 
@@ -459,10 +475,23 @@ def verify2(base,proof,CO):
         data0.append([proof.G1[k][0],-x**k])
         data1.append([proof.G1[k][1],-x**k])
 
-    if not [multiexp(data0),multiexp(data1)] == elgamal_encrypt(Z,proof.z):
-        raise ArithmeticError('Failed verify2!')
+    data0.append([H,-proof.z])
+    data1.append([G,-proof.z])
 
-def verify1(B,proof1):
+    # now combine these
+    weight0 = random_scalar()
+    weight1 = random_scalar()
+    for i in range(len(data0)):
+        data.append([data0[i][0],weight0*data0[i][1]])
+        data.append([data1[i][0],weight1*data1[i][1]])
+
+    if not raw:
+        if not [multiexp(data0),multiexp(data1)] == [Z,Z]:
+            raise ArithmeticError('Failed verify2!')
+    else:
+        return data
+
+def verify1(B,proof1,raw=False):
     m = len(proof1.f_trim)
     n = len(proof1.f_trim[0])+1
 
@@ -491,11 +520,20 @@ def verify1(B,proof1):
             col_sum -= f[j][i]
         if not f[j][0] == col_sum:
             raise ArithmeticError('Failed verify1!')
-
-    if not B*x+proof1.A == matrix_commit(f,proof1.zA):
-        raise ArithmeticError('Failed verify1!')
-    if not proof1.C*x+proof1.D == matrix_commit(f1,proof1.zC):
-        raise ArithmeticError('Failed verify1!')
+    
+    weight0 = random_scalar()
+    weight1 = random_scalar()
+    data0 = matrix_commit(f,proof1.zA,True) + [[B,-x],[proof1.A,-Scalar(1)]]
+    data1 = matrix_commit(f1,proof1.zC,True) + [[proof1.C,-x],[proof1.D,-Scalar(1)]]
+    data = []
+    for i in range(len(data0)):
+        data.append([data0[i][0],weight0*data0[i][1]])
+        data.append([data1[i][0],weight1*data1[i][1]])
+    if not raw:
+        if not multiexp(data) == Z:
+            raise ArithmeticError('Failed verify1!')
+    else:
+        return data
 
 def elgamal_encrypt(X,r):
     return [H*r+X,G*r]

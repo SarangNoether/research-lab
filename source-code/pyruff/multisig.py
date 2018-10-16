@@ -61,7 +61,8 @@ def sign(m,x):
 #   m: message to verify; any type representable by a string
 #   X: list of public keys; type Point
 #   sig: signature; type Multisignature
-def verify(m,X,sig):
+#   raw: whether to return raw multiexp data; True/False
+def verify(m,X,sig,raw=False):
     if len(X) == 0:
         raise ValueError('Signature must use at least one public key!')
     for i in X:
@@ -80,11 +81,13 @@ def verify(m,X,sig):
     c = []
     for i in range(n):
         c.append(hash_to_scalar(str(X[i])+str(sig.R)+strX+str(m)))
-    SG = G*sig.s
     
-    data = [[sig.R,Scalar(1)]]
+    data = [[sig.R,Scalar(1)],[G,-sig.s]]
     for i in range(n):
         data.append([X[i],c[i]])
 
-    if not multiexp(data) == SG:
-        raise ArithmeticError('Bad signature verification!')
+    if not raw:
+        if not multiexp(data) == Z:
+            raise ArithmeticError('Bad signature verification!')
+    if raw:
+        return data
