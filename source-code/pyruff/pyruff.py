@@ -177,7 +177,7 @@ def sub(f_in):
     f = []
     for j in range(L):
         PKZ.append([f_in.KI[j],Z])
-        f.append(hash_to_scalar(str(f_in.KI[j]) + str(f_in) + str(j)))
+        f.append(hash_to_scalar(f_in.KI[j],f_in,j))
     C = []
     for i in range(N):
         data0 = [[f_in.CO[i],Scalar(1)]] # multiexp data (first component)
@@ -243,7 +243,7 @@ def prove2(CO,ii,r,base,exponent):
             data1.append([CO[i][1],coefs[i][k]])
         G1.append([multiexp(data0),multiexp(data1)])
 
-    x = hash_to_scalar(str(proof1.A)+str(proof1.C)+str(proof1.D))
+    x = hash_to_scalar(proof1.A,proof1.C,proof1.D)
 
     z = r*x**exponent
     for i in range(exponent-1,-1,-1):
@@ -344,7 +344,7 @@ def prove1(b,r):
     C = matrix_commit(c,rC)
     D = matrix_commit(d,rD)
 
-    x = hash_to_scalar(str(A)+str(C)+str(D))
+    x = hash_to_scalar(A,C,D)
 
     f = []
     for j in range(m):
@@ -449,7 +449,7 @@ def verify2(base,proof,CO,raw=False):
         for i in range(1,base):
             f[j].append(proof.proof1.f_trim[j][i-1])
 
-    x = hash_to_scalar(str(proof.proof1.A)+str(proof.proof1.C)+str(proof.proof1.D))
+    x = hash_to_scalar(proof.proof1.A,proof.proof1.C,proof.proof1.D)
 
     for j in range(exponent):
         f[j][0] = x
@@ -501,7 +501,7 @@ def verify1(B,proof1,raw=False):
         for i in range(1,n):
             f[j].append(proof1.f_trim[j][i-1])
 
-    x = hash_to_scalar(str(proof1.A)+str(proof1.C)+str(proof1.D))
+    x = hash_to_scalar(proof1.A,proof1.C,proof1.D)
 
     for j in range(m):
         f[j][0] = x

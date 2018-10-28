@@ -5,6 +5,7 @@ import random
 import unittest
 import pyruff
 import multisig
+import musig
 
 # Perform a complete spend test
 def spend(base,exponent,inputs):
@@ -262,6 +263,36 @@ class TestProduct(unittest.TestCase):
         self.assertEqual(pyruff.product(c,d),result)
         self.assertEqual(pyruff.product(d,c),result)
 
-tests = [TestMultisig,TestMatrixCommit,TestProduct,TestPyRuff]
+class TestMusig(unittest.TestCase):
+    # Verify a signature with 1 key
+    def test_1(self):
+        x = [random_scalar()]*1
+        X = [G*i for i in x]
+        m = hash_to_scalar('test message')
+        musig.verify(m,X,musig.sign(m,x))
+
+    # Verify a signature with 2 keys
+    def test_2(self):
+        x = [random_scalar()]*2
+        X = [G*i for i in x]
+        m = hash_to_scalar('test message')
+        musig.verify(m,X,musig.sign(m,x))
+
+    # Verify a signature with 2 keys where the public keys are in a different order
+    def test_2_order(self):
+        x = [random_scalar()]*2
+        X = list(reversed([G*i for i in x]))
+        m = hash_to_scalar('test message')
+        musig.verify(m,X,musig.sign(m,x))
+
+    # Test a bad signature with random public keys
+    def test_2_bad(self):
+        x = [random_scalar()]*2
+        X = [random_point() for i in x]
+        m = hash_to_scalar('test message')
+        with self.assertRaises(ArithmeticError):
+            musig.verify(m,X,musig.sign(m,x))
+
+tests = [TestMultisig,TestMusig,TestMatrixCommit,TestProduct,TestPyRuff]
 for test in tests:
     unittest.TextTestRunner(verbosity=2,failfast=True).run(unittest.TestLoader().loadTestsFromTestCase(test))

@@ -339,15 +339,21 @@ def make_point(y):
     return P
 
 # hash data to get a point on the curve in the G subgroup
-def hash_to_point(data):
+def hash_to_point(*data):
+    result = ''
+    for datum in data:
+        result += hashlib.sha256(str(datum)).hexdigest()
     while True:
-        data = hashlib.sha256(data).hexdigest()
-        if make_point(int(data,16)) is not None:
-            return make_point(int(data,16))*Scalar(8)
+        result = hashlib.sha256(result).hexdigest()
+        if make_point(int(result,16)) is not None:
+            return make_point(int(result,16))*Scalar(8)
 
 # hash data to get a scalar
-def hash_to_scalar(data):
-    return Scalar(int(hashlib.sha256(data).hexdigest(),16))
+def hash_to_scalar(*data):
+    result = ''
+    for datum in data:
+        result += hashlib.sha256(str(datum)).hexdigest()
+    return Scalar(int(hashlib.sha256(result).hexdigest(),16))
 
 # generate a random scalar
 def random_scalar():

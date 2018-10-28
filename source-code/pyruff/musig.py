@@ -1,4 +1,5 @@
-# Multisig: sign a message with a vector of keys
+# Musig: sign a message with a vector of keys
+# https://eprint.iacr.org/2018/068
 #
 # Use this code only for prototyping
 # -- putting this code into production would be dumb
@@ -35,25 +36,23 @@ def sign(m,x):
         raise TypeError('Cannot convert message!')
 
     n = len(x)
-    X = []
+    X = [] # public keys
+    a = [] # aggregate commitmnets
+    r = [] # blinders
     for i in range(n):
         X.append(G*x[i])
-    strX = ''.join([hashlib.sha256(str(i)).hexdigest() for i in sorted(X,key = lambda j: str(j))])
+        r.append(random_scalar())
+    L = ''.join([hashlib.sha256(str(i)).hexdigest() for i in sorted(X,key = lambda j: str(j))]) # sorted key hash list
 
-    rs = []
-    r = Scalar(0)
     for i in range(n):
-        rs.append(random_scalar())
-        r += rs[i]
+        a.append(hash_to_scalar(L,X[i]))
+    X_agg = multiexp([[X[i],a[i]] for i in range(n)]) # aggregate key
+    R = multiexp([[G,r[i]] for i in range(n)])
+    c = hash_to_scalar(X_agg,R,m)
 
-    R = G*r
-    c = []
-    ss = []
     s = Scalar(0)
     for i in range(n):
-        c.append(hash_to_scalar(X[i],R,strX,m))
-        ss.append(rs[i]+x[i]*c[i])
-        s += ss[i]
+        s += r[i] + c*a[i]*x[i]
 
     return Multisignature(R,s)
 
@@ -77,15 +76,15 @@ def verify(m,X,sig,raw=False):
         raise TypeError('Signature must be of type Multisignature!')
 
     n = len(X)
-    strX = ''.join([hashlib.sha256(str(i)).hexdigest() for i in sorted(X,key = lambda j: str(j))])
+    a = [] # aggregate commitments
+    L = ''.join([hashlib.sha256(str(i)).hexdigest() for i in sorted(X,key = lambda j: str(j))]) # sorted key hash list
 
-    c = []
     for i in range(n):
-        c.append(hash_to_scalar(X[i],sig.R,strX,m))
-    
-    data = [[sig.R,Scalar(1)],[G,-sig.s]]
-    for i in range(n):
-        data.append([X[i],c[i]])
+        a.append(hash_to_scalar(L,X[i]))
+    X_agg = multiexp([[X[i],a[i]] for i in range(n)]) # aggregate key
+    c = hash_to_scalar(X_agg,sig.R,m)
+
+    data = [[G,-sig.s],[sig.R,Scalar(1)],[X_agg,c]]
 
     if not raw:
         if not multiexp(data) == Z:
