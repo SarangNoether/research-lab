@@ -6,7 +6,7 @@ inv8 = Scalar(8).invert()
 
 def mash(s):
     global cache
-    cache = hash_to_scalar(str(cache) + str(s))
+    cache = hash_to_scalar(cache,s)
 
 def clear_cache():
     global cache
