@@ -6,6 +6,7 @@ import stealth
 import account
 import unittest
 import polycom
+import transaction
 
 class TestDumb25519(unittest.TestCase):
     def test_point_operations(self):
@@ -38,6 +39,7 @@ class TestDumb25519(unittest.TestCase):
         self.assertEqual(Scalar(1)**2,Scalar(1))
         self.assertEqual(Scalar(0)**1,Scalar(0))
         self.assertEqual(Scalar(0)**2,Scalar(0))
+        self.assertEqual(Scalar(l-1),Scalar(-1))
 
         # test scalar inversion
         self.assertEqual(Scalar(1).invert(),Scalar(1))
@@ -185,27 +187,27 @@ class TestAccount(unittest.TestCase):
     def test_nary(self):
         # test for bad types in n-ary decompositions (they require integers)
         with self.assertRaises(ArithmeticError):
-            account.nary(None,2)
+            transaction.nary(None,2)
         with self.assertRaises(ArithmeticError):
-            account.nary(1,None)
+            transaction.nary(1,None)
         with self.assertRaises(ArithmeticError):
-            account.nary(0,0)
+            transaction.nary(0,0)
         with self.assertRaises(ArithmeticError):
-            account.nary(-1,2)
+            transaction.nary(-1,2)
         with self.assertRaises(IndexError):
-            account.nary(2,2,0)
+            transaction.nary(2,2,0)
 
         # test decompositions with and without padding
-        self.assertEqual(account.nary(0,2),[0])
-        self.assertEqual(account.nary(0,2,2),[0,0])
-        self.assertEqual(account.nary(1,2),[1])
-        self.assertEqual(account.nary(1,3),[1])
-        self.assertEqual(account.nary(8,3),[2,2])
-        self.assertEqual(account.nary(27,3),[0,0,0,1])
-        self.assertEqual(account.nary(27,3,3),[0,0,0,1])
-        self.assertEqual(account.nary(27,3,4),[0,0,0,1])
-        self.assertEqual(account.nary(27,3,5),[0,0,0,1,0])
-        self.assertEqual(account.nary(26,3,5),[2,2,2,0,0])
+        self.assertEqual(transaction.nary(0,2),[0])
+        self.assertEqual(transaction.nary(0,2,2),[0,0])
+        self.assertEqual(transaction.nary(1,2),[1])
+        self.assertEqual(transaction.nary(1,3),[1])
+        self.assertEqual(transaction.nary(8,3),[2,2])
+        self.assertEqual(transaction.nary(27,3),[0,0,0,1])
+        self.assertEqual(transaction.nary(27,3,3),[0,0,0,1])
+        self.assertEqual(transaction.nary(27,3,4),[0,0,0,1])
+        self.assertEqual(transaction.nary(27,3,5),[0,0,0,1,0])
+        self.assertEqual(transaction.nary(26,3,5),[2,2,2,0,0])
 
     def test_1_1_spend(self): # 1 in, 1 out
         # generate a sender and recipient stealth account
@@ -216,7 +218,7 @@ class TestAccount(unittest.TestCase):
 
         # generate a ring of one-time accounts addressed to unknown recipients
         accounts_ring = []
-        for i in range(account.R - 1): 
+        for i in range(transaction.R - 1): 
             temp_private_key = stealth.gen_private_key()
             temp_public_key = stealth.gen_public_key(temp_private_key)
             temp_ot_account,temp_deposit_key = account.gen_account(temp_public_key,random_scalar())
@@ -230,8 +232,8 @@ class TestAccount(unittest.TestCase):
         ot_recipient,deposit_recipient = account.gen_account(recipient_public_key,random_scalar())
 
         # spend the input
-        tx = account.Transaction([withdrawal_key.tag],accounts_ring,[ot_recipient])
-        account.spend([withdrawal_key],[deposit_recipient],tx,'spend memo')
+        tx = transaction.Transaction([withdrawal_key.tag],accounts_ring,[ot_recipient])
+        transaction.spend([withdrawal_key],[deposit_recipient],tx,'spend memo')
 
 class TestPolyCom(unittest.TestCase):
     def test_m_n_d_1_1_0_steps(self):

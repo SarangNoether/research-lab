@@ -11,16 +11,18 @@ import ecies
 G = dumb25519.G
 H = dumb25519.H
 
+# stealth account master private key
 class PrivateKey:
     tsk = None
     ssk = None
     x = None
 
     def __init__(self,tsk,ssk,x):
-        self.tsk = tsk
-        self.ssk = ssk
+        self.tsk = tsk # for ephemeral key
+        self.ssk = ssk # for coin
         self.x = x
 
+# stealth account master public key
 class PublicKey:
     tpk = None
     spk = None
