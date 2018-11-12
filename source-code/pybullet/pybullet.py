@@ -72,7 +72,7 @@ def prove(data,N):
 
     # curve points
     G = dumb25519.G
-    H = dumb25519.H
+    H = hash_to_point('pybullet H')
     Gi = PointVector([hash_to_point('pybullet Gi ' + str(i)) for i in range(M*N)])
     Hi = PointVector([hash_to_point('pybullet Hi ' + str(i)) for i in range(M*N)])
 
@@ -178,7 +178,7 @@ def verify(proofs,N):
     # curve points
     Z = dumb25519.Z
     G = dumb25519.G
-    H = dumb25519.H
+    H = hash_to_point('pybullet H')
     Gi = PointVector([hash_to_point('pybullet Gi ' + str(i)) for i in range(max_MN)])
     Hi = PointVector([hash_to_point('pybullet Hi ' + str(i)) for i in range(max_MN)])
 
@@ -189,7 +189,8 @@ def verify(proofs,N):
     z3 = Scalar(0)
     z4 = [Scalar(0)]*max_MN
     z5 = [Scalar(0)]*max_MN
-    BigAssMultiexp = []
+    scalars = ScalarVector([]) # for final check
+    points = PointVector([]) # for final check
 
     # run through each proof
     for proof in proofs:
@@ -240,12 +241,17 @@ def verify(proofs,N):
         y1 += (t-k)*weight_y
 
         for j in range(M):
-            BigAssMultiexp.append([V[j]*Scalar(8),z**(j+2)*weight_y])
-        BigAssMultiexp.append([T1*Scalar(8),x*weight_y])
-        BigAssMultiexp.append([T2*Scalar(8),x**2*weight_y])
+            scalars.append(z**(j+2)*weight_y)
+            points.append(V[j]*Scalar(8))
+        scalars.append(x*weight_y)
+        points.append(T1*Scalar(8))
+        scalars.append(x**2*weight_y)
+        points.append(T2*Scalar(8))
 
-        BigAssMultiexp.append([A*Scalar(8),weight_z])
-        BigAssMultiexp.append([S*Scalar(8),x*weight_z])
+        scalars.append(weight_z)
+        points.append(A*Scalar(8))
+        scalars.append(x*weight_z)
+        points.append(S*Scalar(8))
 
         # inner product
         W = ScalarVector([])
@@ -281,18 +287,24 @@ def verify(proofs,N):
         z1 += mu*weight_z
 
         for i in range(len(L)):
-            BigAssMultiexp.append([L[i]*Scalar(8),(W[i]**2)*weight_z])
-            BigAssMultiexp.append([R[i]*Scalar(8),(W_inv[i]**2)*weight_z])
+            scalars.append(W[i]**2*weight_z)
+            points.append(L[i]*Scalar(8))
+            scalars.append(W_inv[i]**2*weight_z)
+            points.append(R[i]*Scalar(8))
         z3 += (t-a*b)*x_ip*weight_z
     
     # now check all proofs together
-    BigAssMultiexp.append([G,-y0-z1])
-    BigAssMultiexp.append([H,-y1+z3])
+    scalars.append(-y0-z1)
+    points.append(G)
+    scalars.append(-y1+z3)
+    points.append(H)
     for i in range(max_MN):
-        BigAssMultiexp.append([Gi[i],-z4[i]])
-        BigAssMultiexp.append([Hi[i],-z5[i]])
+        scalars.append(-z4[i])
+        points.append(Gi[i])
+        scalars.append(-z5[i])
+        points.append(Hi[i])
 
-    if not dumb25519.multiexp(BigAssMultiexp) == Z:
+    if not dumb25519.multiexp(scalars,points) == Z:
         raise ArithmeticError('Bad z check!')
 
     return True
