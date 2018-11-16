@@ -7,13 +7,12 @@
 import random
 import hashlib
 
-VERSION = 0.1 # to help with compatibility
+VERSION = 0.2 # to help with compatibility
 
 # curve parameters
 b = 256
 q = 2**255 - 19
 l = 2**252 + 27742317777372353535851937790883648493
-cofactor = 8
 
 # Internal helper methods
 def exponent(b,e,m):
@@ -350,7 +349,7 @@ def hash_to_point(*data):
     while True:
         result = hashlib.sha256(result).hexdigest()
         if make_point(int(result,16)) is not None:
-            return make_point(int(result,16))*Scalar(cofactor)
+            return make_point(int(result,16))*Scalar(8)
 
 # hash data to get a scalar
 def hash_to_scalar(*data):
@@ -385,7 +384,14 @@ G = Point(Gx % q, Gy % q)
 Z = Point(0,1)
 
 # multiexponention operation using simplified Pippenger
-def multiexp(scalars,points):
+def multiexp(*data):
+    if len(data) == 1:
+        scalars = [datum[1] for datum in data[0]]
+        points = [datum[0] for datum in data[0]]
+    else:
+        scalars = data[0]
+        points = data[1]
+
     if not isinstance(scalars,ScalarVector) or not isinstance(points,PointVector):
         raise TypeError
     if len(scalars) != len(points):
