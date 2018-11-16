@@ -384,7 +384,14 @@ G = Point(Gx % q, Gy % q)
 Z = Point(0,1)
 
 # multiexponention operation using simplified Pippenger
-def multiexp(scalars,points):
+def multiexp(*data):
+    if len(data) == 1:
+        scalars = [datum[1] for datum in data[0]]
+        points = [datum[0] for datum in data[0]]
+    else:
+        scalars = data[0]
+        points = data[1]
+
     if not isinstance(scalars,ScalarVector) or not isinstance(points,PointVector):
         raise TypeError
     if len(scalars) != len(points):

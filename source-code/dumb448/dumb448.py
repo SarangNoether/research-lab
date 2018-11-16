@@ -1,4 +1,4 @@
-# Dumb448: a stupid implementation of ed25519
+# Dumb448: a stupid implementation of ed448
 #
 # Use this code only for prototyping
 # -- putting this code into production would be dumb
@@ -7,12 +7,13 @@
 import random
 import hashlib
 
-VERSION = 0.1 # to help with compatibility
+VERSION = 0.2 # to help with compatibility
 
 # curve parameters
 b = 456
 q = 2**448 - 2**224 - 1
 l = 2**446 - 13818066809895115352007386748515426880336692474882178609894547503885
+cofactor = 4
 
 # Internal helper methods
 def exponent(b,e,m):
@@ -346,7 +347,7 @@ def hash_to_point(*data):
     while True:
         result = int(bin(int(hashlib.sha256(str(result)).hexdigest(),16))[-448:],2)
         if make_point(result) is not None:
-            return make_point(result)*Scalar(4)
+            return make_point(result)*Scalar(cofactor)
 
 # hash data to get a scalar
 def hash_to_scalar(*data):
@@ -383,7 +384,14 @@ G = Point(Gx % q, Gy % q)
 Z = Point(0,1)
 
 # multiexponention operation using simplified Pippenger
-def multiexp(scalars,points):
+def multiexp(*data):
+    if len(data) == 1:
+        scalars = [datum[1] for datum in data[0]]
+        points = [datum[0] for datum in data[0]]
+    else:
+        scalars = data[0]
+        points = data[1]
+
     if not isinstance(scalars,ScalarVector) or not isinstance(points,PointVector):
         raise TypeError
     if len(scalars) != len(points):
