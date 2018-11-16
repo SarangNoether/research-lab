@@ -7,12 +7,14 @@
 import random
 import hashlib
 
+VERSION = 0.2 # to help with compatibility
+
 # curve parameters
 b = 256
 q = 2**255 - 19
 l = 2**252 + 27742317777372353535851937790883648493
 
-# Useful helper methods
+# Internal helper methods
 def exponent(b,e,m):
     return pow(b,e,m)
 
@@ -33,6 +35,8 @@ I = exponent(2,(q-1)/4,q)
 
 class Scalar:
     def __init__(self,x):
+        if not isinstance(x,int) and not isinstance(x,long):
+            raise TypeError
         self.x = x % l
 
     def invert(self):
@@ -45,48 +49,40 @@ class Scalar:
             return Scalar(self.x + y)
         if isinstance(y,Scalar):
             return Scalar(self.x + y.x)
-        raise TypeError
+        return NotImplemented
 
     def __sub__(self,y):
         if isinstance(y,int):
             return Scalar(self.x - y)
         if isinstance(y,Scalar):
             return Scalar(self.x - y.x)
-        raise TypeError
+        return NotImplemented
 
     def __mul__(self,y):
         if isinstance(y,int):
             return Scalar(self.x * y)
         if isinstance(y,Scalar):
             return Scalar(self.x * y.x)
-        raise TypeError
+        return NotImplemented
 
     def __div__(self,y):
         if isinstance(y,int):
             return Scalar(self.x / y)
         if isinstance(y,Scalar):
             return Scalar(self.x / y.x)
-        raise TypeError
+        raise NotImplemented
 
     def __pow__(self,y):
         if not isinstance(y,int):
-            raise TypeError
-
-        result = Scalar(1)
-        for i in range(y):
-            result = result*self
-        return result
+            return NotImplemented
+        return Scalar(self.x**y)
 
     def __eq__(self,y):
-        if isinstance(y,int):
-            return self.x == Scalar(y).x
         if isinstance(y,Scalar):
             return self.x == y.x
         raise TypeError
 
     def __ne__(self,y):
-        if isinstance(y,int):
-            return self.x != Scalar(y).x
         if isinstance(y,Scalar):
             return self.x != y.x
         raise TypeError
@@ -94,35 +90,27 @@ class Scalar:
     def __lt__(self,y):
         if isinstance(y,Scalar):
             return self.x < y.x
-        if isinstance(y,int):
-            return self.x < Scalar(y).x
         raise TypeError
 
     def __gt__(self,y):
         if isinstance(y,Scalar):
             return self.x > y.x
-        if isinstance(y,int):
-            return self.x > Scalar(y).x
         raise TypeError
 
     def __le__(self,y):
         if isinstance(y,Scalar):
             return self.x <= y.x
-        if isinstance(y,int):
-            return self.x <= Scalar(y).x
         raise TypeError
 
     def __ge__(self,y):
         if isinstance(y,Scalar):
             return self.x >= y.x
-        if isinstance(y,int):
-            return self.x >= Scalar(y).x
         raise TypeError
 
     def __str__(self):
         return str(self.x)
 
-    def to_int(self):
+    def __int__(self):
         return self.x
 
     def __mod__(self,mod):
@@ -130,13 +118,17 @@ class Scalar:
             return Scalar(self.x % mod)
         if isinstance(mod,Scalar):
             return Scalar(self.x % mod.x)
-        raise TypeError
+        return NotImplemented
 
     def __neg__(self):
         return Scalar(-self.x)
 
 class Point:
     def __init__(self,x,y):
+        if not isinstance(x,long) and not isinstance(x,int):
+            raise TypeError
+        if not isinstance(y,long) and not isinstance(y,int):
+            raise TypeError
         self.x = x
         self.y = y
 
@@ -152,7 +144,7 @@ class Point:
 
     def __add__(self,Q):
         if not isinstance(Q,Point):
-            raise TypeError
+            return NotImplemented
         x1 = self.x
         y1 = self.y
         x2 = Q.x
@@ -163,7 +155,7 @@ class Point:
 
     def __sub__(self,Q):
         if not isinstance(Q,Point):
-            raise TypeError
+            return NotImplemented
         x1 = self.x
         y1 = self.y
         x2 = -Q.x
@@ -174,7 +166,7 @@ class Point:
 
     def __mul__(self,y):
         if not isinstance(y,Scalar):
-            raise TypeError
+            return NotImplemented
         if y == Scalar(0):
             return Point(0,1)
         Q = self.__mul__(y/Scalar(2))
@@ -183,9 +175,15 @@ class Point:
             Q = self.__add__(Q)
         return Q
 
+    def __rmul__(self,y):
+        if not isinstance(y,Scalar):
+            return NotImplemented
+        return self*y
+
     def __str__(self):
         return str(self.x) + str(self.y)
 
+    # determines if the point is on the curve
     def on_curve(self):
         x = self.x
         y = self.y
@@ -217,12 +215,7 @@ class PointVector:
         if isinstance(s,Scalar):
             return PointVector([self.points[i]*s for i in range(len(self.points))])
         if isinstance(s,ScalarVector):
-            if not len(self.points) == len(s.scalars):
-                raise IndexError
-            R = []
-            for i in range(len(self.points)):
-                R.append([self.points[i],s.scalars[i]])
-            return multiexp(R)
+            return multiexp(s,self)
         if isinstance(s,PointVector):
             if not len(self.points) == len(s.points):
                 raise IndexError
@@ -273,11 +266,18 @@ class ScalarVector:
     def __mul__(self,s):
         if isinstance(s,Scalar):
             return ScalarVector([self.scalars[i]*s for i in range(len(self.scalars))])
-        if not len(self.scalars) == len(s.scalars):
-            raise IndexError
         if not isinstance(s,ScalarVector):
             raise TypeError
+        if not len(self.scalars) == len(s.scalars):
+            raise IndexError
         return ScalarVector([self.scalars[i]*s.scalars[i] for i in range(len(self.scalars))])
+
+    # running sum
+    def sum(self):
+        r = Scalar(0)
+        for i in range(len(self.scalars)):
+            r += self.scalars[i]
+        return r
 
     # inner product
     def __pow__(self,s):
@@ -329,9 +329,10 @@ class ScalarVector:
 
         return inputs
 
-
 # make a point from a given integer y (if it is on the curve)
 def make_point(y):
+    if not y < q: # stay in the field
+        return None
     x = xfromy(y)
     P = Point(x,y)
     if not P.on_curve():
@@ -342,6 +343,8 @@ def make_point(y):
 def hash_to_point(*data):
     result = ''
     for datum in data:
+        if datum is None:
+            raise TypeError
         result += hashlib.sha256(str(datum)).hexdigest()
     while True:
         result = hashlib.sha256(result).hexdigest()
@@ -352,12 +355,21 @@ def hash_to_point(*data):
 def hash_to_scalar(*data):
     result = ''
     for datum in data:
+        if datum is None:
+            raise TypeError
         result += hashlib.sha256(str(datum)).hexdigest()
-    return Scalar(int(hashlib.sha256(result).hexdigest(),16))
+    
+    # ensure we're uniformly in the scalar range
+    while True:
+        if int(result,16) < l:
+            return Scalar(int(result,16))
+        result = hashlib.sha256(result).hexdigest()
 
 # generate a random scalar
-def random_scalar():
-    return Scalar(random.randrange(0,l))
+def random_scalar(zero=True):
+    if zero:
+        return Scalar(random.randrange(0,l))
+    return Scalar(random.randrange(1,l))
 
 # generate a random point in the G subgroup
 def random_point():
@@ -367,27 +379,26 @@ def random_point():
 Gy = 4*invert(5,q)
 Gx = xfromy(Gy)
 G = Point(Gx % q, Gy % q)
-H = hash_to_point('dumb25519 H')
 
 # zero point
 Z = Point(0,1)
 
-# helper function to recursively flatten an arbitrary nested list
-def flatten(L):
-    if L == []:
-        return L
-    if isinstance(L[0],list):
-        return flatten(L[0]) + flatten(L[1:])
-    return L[:1] + flatten(L[1:])
-
 # multiexponention operation using simplified Pippenger
-# -- input data is of form [[P1,a1],[P2,a2],...]
-def multiexp(data):
-    if len(data) == 0:
+def multiexp(*data):
+    if len(data) == 1:
+        scalars = ScalarVector([datum[1] for datum in data[0]])
+        points = PointVector([datum[0] for datum in data[0]])
+    else:
+        scalars = data[0]
+        points = data[1]
+
+    if not isinstance(scalars,ScalarVector) or not isinstance(points,PointVector):
+        raise TypeError
+    if len(scalars) != len(points):
+        raise IndexError
+    if len(scalars) == 0:
         return Z
 
-    scalars = [datum[1] for datum in data]
-    points = [datum[0] for datum in data]
     buckets = None
     nonzero = False
     result = Z # zero point
@@ -395,7 +406,7 @@ def multiexp(data):
     c = 4 # window parameter; NOTE: the optimal value actually depends on len(points) empirically
 
     # really we want to use the max bitlength to compute groups
-    maxscalar = max(scalars).to_int()
+    maxscalar = int(max(scalars))
     groups = 0
     while maxscalar >= 2**groups:
         groups += 1
@@ -413,7 +424,7 @@ def multiexp(data):
         for i in range(len(scalars)):
             bucket = 0
             for j in range(c):
-                if scalars[i].to_int() & (1 << (k*c+j)): # test for bit
+                if int(scalars[i]) & (1 << (k*c+j)): # test for bit
                     bucket |= 1 << j
             
             if bucket == 0: # zero bucket is never used

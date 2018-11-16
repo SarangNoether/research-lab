@@ -7,6 +7,11 @@
 from dumb25519 import *
 import multisig
 
+if not VERSION == 0.2:
+    raise Exception('Library version mismatch!')
+
+H = hash_to_point('pyruff H')
+
 class SecretKey:
     r = None
     r1 = None
