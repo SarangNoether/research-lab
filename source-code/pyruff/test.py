@@ -22,7 +22,7 @@ def spend(base,exponent,inputs):
     # prepare a destination output and change
     total_inputs = 0
     for output in input_list:
-        total_inputs += output.amount.to_int()
+        total_inputs += int(output.amount)
     output0 = random.randrange(0,total_inputs)
     output1 = total_inputs - output0
     output_list.append(pyruff.Output(Scalar(output0)))

@@ -7,6 +7,9 @@
 from dumb25519 import *
 import hashlib
 
+if not VERSION == 0.2:
+    raise Exception('Library version mismatch!')
+
 class Multisignature:
     R = None
     s = None
