@@ -7,7 +7,7 @@
 import random
 import hashlib
 
-VERSION = 0.1 # to help with compatibility
+VERSION = 0.2 # to help with compatibility
 
 # curve parameters
 b = 256
@@ -331,6 +331,8 @@ class ScalarVector:
 
 # make a point from a given integer y (if it is on the curve)
 def make_point(y):
+    if not y < q: # stay in the field
+        return None
     x = xfromy(y)
     P = Point(x,y)
     if not P.on_curve():
@@ -356,7 +358,12 @@ def hash_to_scalar(*data):
         if datum is None:
             raise TypeError
         result += hashlib.sha256(str(datum)).hexdigest()
-    return Scalar(int(hashlib.sha256(result).hexdigest(),16))
+    
+    # ensure we're uniformly in the scalar range
+    while True:
+        if int(result,16) < l:
+            return Scalar(int(result,16))
+        result = hashlib.sha256(result).hexdigest()
 
 # generate a random scalar
 def random_scalar(zero=True):
@@ -377,7 +384,14 @@ G = Point(Gx % q, Gy % q)
 Z = Point(0,1)
 
 # multiexponention operation using simplified Pippenger
-def multiexp(scalars,points):
+def multiexp(*data):
+    if len(data) == 1:
+        scalars = [datum[1] for datum in data[0]]
+        points = [datum[0] for datum in data[0]]
+    else:
+        scalars = data[0]
+        points = data[1]
+
     if not isinstance(scalars,ScalarVector) or not isinstance(points,PointVector):
         raise TypeError
     if len(scalars) != len(points):
