@@ -1,4 +1,4 @@
-# Dumb25519: a stupid implementation of ed25519
+# Dumb448: a stupid implementation of ed448
 #
 # Use this code only for prototyping
 # -- putting this code into production would be dumb
@@ -7,12 +7,13 @@
 import random
 import hashlib
 
-VERSION = 0.1 # to help with compatibility
+VERSION = 0.2 # to help with compatibility
 
 # curve parameters
-b = 256
-q = 2**255 - 19
-l = 2**252 + 27742317777372353535851937790883648493
+b = 456
+q = 2**448 - 2**224 - 1
+l = 2**446 - 13818066809895115352007386748515426880336692474882178609894547503885
+cofactor = 4
 
 # Internal helper methods
 def exponent(b,e,m):
@@ -22,16 +23,13 @@ def invert(x,n):
     return exponent(x,n-2,n)
 
 def xfromy(y):
-    temp = (y*y-1) * invert(d*y*y+1,q)
-    x = exponent(temp,(q+3)/8,q)
-    if (x*x - temp) % q != 0:
-        x = (x*I) % q
+    temp = (y*y-1) * invert(d*y*y-1,q)
+    x = exponent(temp,(q+1)/4,q)
     if x % 2 != 0:
         x = q-x
     return x
 
-d = -121665 * invert(121666,q)
-I = exponent(2,(q-1)/4,q)
+d = -39081
 
 class Scalar:
     def __init__(self,x):
@@ -150,7 +148,7 @@ class Point:
         x2 = Q.x
         y2 = Q.y
         x3 = (x1*y2+x2*y1) * invert(1+d*x1*x2*y1*y2,q)
-        y3 = (y1*y2+x1*x2) * invert(1-d*x1*x2*y1*y2,q)
+        y3 = (y1*y2-x1*x2) * invert(1-d*x1*x2*y1*y2,q)
         return Point(x3 % q, y3 % q)
 
     def __sub__(self,Q):
@@ -161,7 +159,7 @@ class Point:
         x2 = -Q.x
         y2 = Q.y
         x3 = (x1*y2+x2*y1) * invert(1+d*x1*x2*y1*y2,q)
-        y3 = (y1*y2+x1*x2) * invert(1-d*x1*x2*y1*y2,q)
+        y3 = (y1*y2-x1*x2) * invert(1-d*x1*x2*y1*y2,q)
         return Point(x3 % q, y3 % q)
 
     def __mul__(self,y):
@@ -187,7 +185,7 @@ class Point:
     def on_curve(self):
         x = self.x
         y = self.y
-        return (-x*x + y*y - 1 - d*x*x*y*y) % q == 0
+        return (x*x + y*y - 1 - d*x*x*y*y) % q == 0
 
 class PointVector:
     def __init__(self,points):
@@ -345,11 +343,11 @@ def hash_to_point(*data):
     for datum in data:
         if datum is None:
             raise TypeError
-        result += hashlib.sha256(str(datum)).hexdigest()
+        result += hashlib.sha512(str(datum)).hexdigest()
     while True:
-        result = hashlib.sha256(result).hexdigest()
-        if make_point(int(result,16)) is not None:
-            return make_point(int(result,16))*Scalar(8)
+        result = int(bin(int(hashlib.sha256(str(result)).hexdigest(),16))[-448:],2)
+        if make_point(result) is not None:
+            return make_point(result)*Scalar(cofactor)
 
 # hash data to get a scalar
 def hash_to_scalar(*data):
@@ -357,13 +355,15 @@ def hash_to_scalar(*data):
     for datum in data:
         if datum is None:
             raise TypeError
-        result += hashlib.sha256(str(datum)).hexdigest()
-    
+        result += hashlib.sha512(str(datum)).hexdigest()
+
     # ensure we're uniformly in the scalar range
+    result = int(bin(int(result,16))[-446:],2)
     while True:
-        if int(result,16) < l:
-            return Scalar(int(result,16))
-        result = hashlib.sha256(result).hexdigest()
+        if result < l:
+            return Scalar(result)
+        result = hashlib.sha256(str(result)).hexdigest()
+        result = int(bin(int(result,16))[-446:],2)
 
 # generate a random scalar
 def random_scalar(zero=True):
@@ -376,7 +376,7 @@ def random_point():
     return hash_to_point(str(random.random()))
 
 # basepoint
-Gy = 4*invert(5,q)
+Gy = 298819210078481492676017930443930673437544040154080242095928241372331506189835876003536878655418784733982303233503462500531545062832660
 Gx = xfromy(Gy)
 G = Point(Gx % q, Gy % q)
 

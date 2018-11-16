@@ -13,6 +13,7 @@ VERSION = 0.1 # to help with compatibility
 b = 256
 q = 2**255 - 19
 l = 2**252 + 27742317777372353535851937790883648493
+cofactor = 8
 
 # Internal helper methods
 def exponent(b,e,m):
@@ -349,7 +350,7 @@ def hash_to_point(*data):
     while True:
         result = hashlib.sha256(result).hexdigest()
         if make_point(int(result,16)) is not None:
-            return make_point(int(result,16))*Scalar(8)
+            return make_point(int(result,16))*Scalar(cofactor)
 
 # hash data to get a scalar
 def hash_to_scalar(*data):
