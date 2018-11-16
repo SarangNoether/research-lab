@@ -386,8 +386,8 @@ Z = Point(0,1)
 # multiexponention operation using simplified Pippenger
 def multiexp(*data):
     if len(data) == 1:
-        scalars = [datum[1] for datum in data[0]]
-        points = [datum[0] for datum in data[0]]
+        scalars = ScalarVector([datum[1] for datum in data[0]])
+        points = PointVector([datum[0] for datum in data[0]])
     else:
         scalars = data[0]
         points = data[1]

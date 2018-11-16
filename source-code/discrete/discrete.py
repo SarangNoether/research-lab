@@ -8,7 +8,6 @@
 
 import dumb25519
 import dumb448
-import unittest
 
 if not dumb25519.VERSION == 0.2 or not dumb448.VERSION == 0.2:
     raise Exception('Library version mismatch!')
@@ -216,30 +215,3 @@ def verify(proof):
         e0_prime_H = dumb448.hash_to_scalar(C_G[i],C_H[i],a0[i]*G-e1_G*(C_G[i]-G1),b0[i]*H-e1_H*(C_H[i]-H1))
         if not e0_G[i] == e0_prime_G or not e0_H[i] == e0_prime_H:
             raise ArithmeticError('Bitwise ring signature verification failed!')
-
-# Test suite
-class Test(unittest.TestCase):
-    def test_nary(self):
-        assert nary(0,2) == [0]
-        assert nary(1,2) == [1]
-        assert nary(2,2) == [0,1]
-        assert nary(3,2) == [1,1]
-
-    def test_bad_x(self):
-        with self.assertRaises(ValueError):
-            verify(prove(max_x))
-        with self.assertRaises(ValueError):
-            verify(prove(max_x+1))
-        with self.assertRaises(ValueError):
-            verify(prove(-1))
-    
-    def test_0(self):
-        verify(prove(0))
-
-    def test_1(self):
-        verify(prove(1))
-
-    def test_2(self):
-        verify(prove(2))
-
-unittest.TextTestRunner(verbosity=2,failfast=True).run(unittest.TestLoader().loadTestsFromTestCase(Test))
