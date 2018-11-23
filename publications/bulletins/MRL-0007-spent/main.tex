@@ -26,6 +26,8 @@ At Monero's launch, senders could choose any ring size, including a ring contain
 
 In this technical note, we define the idea of a spent output in a general way using basic set theory. We show that this definition captures several known methods for spent output identification. Using a tool available to all Monero users, we quantify the occurrence of many spent outputs on the Monero blockchain, showing that modern transactions are essentially unaffected by them.
 
+Independent concurrent work in \cite{unpub1,unpub2} (to appear) makes a similar definition and provides a somewhat more general algorithm for identifying certain spent outputs, as well as performing formal analysis.
+
 \section{Definition}
 Let $\mathcal{N}$ be the (finite) set of all outputs on a blockchain. We define a \textit{ring} as a subset of $\mathcal{N}$. A ring containing exactly $n$ elements is an $n$\textit{-ring}. We often use lowercase letters as generic outputs.
 
