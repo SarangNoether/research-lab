@@ -1,0 +1,95 @@
+\documentclass{mrl}
+
+\title{Discrete logarithm equality across groups}
+\authors{Sarang Noether\footnote{\texttt{sarang.noether@protonmail.com}}}
+\affiliations{Monero Research Lab}
+\date{\today}
+
+\newcommand{\hg}{\operatorname{H}_\mathbb{G}}
+\newcommand{\hh}{\operatorname{H}_\mathbb{H}}
+\newcommand{\zp}{\mathbb{Z}_p}
+\newcommand{\zq}{\mathbb{Z}_q}
+
+\type{TECHNICAL NOTE}
+\ident{MRL-0010}
+
+\begin{document}
+
+\begin{abstract}
+This technical note describes an algorithm used to prove knowledge of the same discrete logarithm across different groups. The scheme expresses the common value as a scalar representation of bits, and uses a set of ring signatures to prove each bit is a valid value that is the same (up to an equivalence) across both scalar groups. 
+\end{abstract}
+
+\section{Notation}
+We use the shorthand notation $\mathbb{Z}_n$ to mean the group $\mathbb{Z}/n\mathbb{Z}$. Let $\mathbb{G}$ and $\mathbb{H}$ be prime-order groups where the discrete logarithm problem is assumed to be hard: for example, \texttt{secp256k1} or the $l$-subgroup of \texttt{curve25519}. Let $G,G' \in \mathbb{G}$ and $H,H' \in \mathbb{H}$ be generators of their respective groups. Suppose $|G| = p$ and $|H| = q$. Let $\hg: \{0,1\}^* \to \zp$ and $\hh: \{0,1\}^* \to \zq$ be cryptographic hash functions.
+
+Without loss of generality, assume $p \leq q$. Choose $x \in \mathbb{Z}$ such that $0 \leq x < p$. By considering the natural projections $\mathbb{Z} \to \zp$ and $\mathbb{Z} \to \zq$ with this domain restriction, there is a bijection between elements of $\zp$ and the restriction of $\zq$. Given this, we wish to prove that, given only the values $xG'$ and $xH'$ (and other proof elements as needed), the discrete logarithm of each is a representation of the same integer. In particular, we do not wish to reveal $x$ to the verifier.
+
+Since there is no meaningful map assumed between the two groups, our approach is to decompose $x$ into bits, treating each bit as a scalar in both $\zp$ and $\zq$ using our equivalence, and generate commitments to each bit in both groups. For each bit, we will construct a Schnorr-type ring signature showing that the bit commitment is valid and the same value in each group.
+
+This method was originally proposed publicly by Andrew Poelstra.
+\section{Algorithm}
+\subsection{Prover}
+Given an integer $0 \leq x < p$, express in bits: $$x = \sum_{i=0}^{n-1} b_i2^i$$ Note that because of the equivalence discussed above, each $b_i$ may be considered as an element of either $\zp$ or $\zq$ as needed, leading to a representation of $x$ in each group.
+For each $i \in [0,n-2]$, generate random blinders $r_i \in \zp$ and $s_i \in \zq$. For $i = n-1$, set blinders $$r_{n-1} = (2^{n-1})^{-1}\sum_{i=0}^{n-2} r_i2^i \in \zp$$ and $$s_{n-1} = (2^{n-1})^{-1}\sum_{i=0}^{n-2} s_i2^i \in \zq$$ to ensure that $\sum_{i=0}^{n-1} r_i2^i = \sum_{i=1}^{n-1} s_i2^i = 0$.
+
+For each $i \in [0,n-1]$, use the blinders to compute two Pedersen commitments:
+\begin{eqnarray*}
+C_i^G &:=& b_iG' + r_iG \in \mathbb{G} \\
+C_i^H &:=& b_iH' + s_iH \in \mathbb{H}
+\end{eqnarray*}
+Because of this construction, the weighted commitment sums are $\sum_{i=0}^{n-1} 2^iC_i^G = xG'$ and $\sum_{i=0}^{n-1} 2^iC_i^H = xH'$ in their respective groups.
+
+We next construct a ring signature on each bit to show it is either $0$ or $1$, and that the value is the same (up to our equivalence) in both groups. Specifically, for each $i \in [0,n-1]$, we consider two cases:
+
+\textbf{Case:} $b_i = 0$. Choose random $j_i \in \zp$ and $k_i \in \zq$. Set
+\begin{eqnarray*}
+e_{1,i}^G &:=& \hg\left( C_i^G, C_i^H, j_iG, k_iH \right) \in \zp \\
+e_{1,i}^H &:=& \hh\left( C_i^G, C_i^H, j_iG, k_iH \right) \in \zq
+\end{eqnarray*}
+and choose random $a_{0,i} \in \zp$ and $b_{0,i} \in \zq$. Set
+\begin{eqnarray*}
+e_{0,i}^G &:=& \hg\left( C_i^G, C_i^H, a_{0,i}G - e_{1,i}^G(C_i^G-G'), b_{0,i}H - e_{1,i}^H(C_i^H-H') \right) \in \zp \\
+e_{0,i}^H &:=& \hh\left( C_i^G, C_i^H, a_{0,i}G - e_{1,i}^G(C_i^G-G'), b_{0,i}H - e_{1,i}^H(C_i^H-H') \right) \in \zq
+\end{eqnarray*}
+and then define:
+\begin{eqnarray*}
+a_{1,i} &:=& j_i + e_{0,i}^Gr_i \in \zp \\
+b_{1,i} &:=& k_i + e_{0,i}^Hs_i \in \zq
+\end{eqnarray*}
+
+\textbf{Case:} $b_i = 1$. Choose random $j_i \in \zp$ and $k_i \in \zq$. Set
+\begin{eqnarray*}
+e_{0,i}^G &:=& \hg\left( C_i^G, C_i^H, j_iG, k_iH \right) \in \zp \\
+e_{0,i}^H &:=& \hh\left( C_i^G, C_i^H, j_iG, k_iH \right) \in \zq
+\end{eqnarray*}
+and choose random $a_{1,i} \in \zp$ and $b_{1,i} \in \zq$. Set
+\begin{eqnarray*}
+e_{1,i}^G &:=& \hg\left( C_i^G, C_i^H, a_{1,i}G - e_{0,i}^GC_i^G, b_{1,i}H - e_{0,i}^HC_i^H \right) \in \zp \\
+e_{1,i}^H &:=& \hh\left( C_i^G, C_i^H, a_{1,i}G - e_{0,i}^GC_i^G, b_{1,i}H - e_{0,i}^HC_i^H \right) \in \zq
+\end{eqnarray*}
+and then define:
+\begin{eqnarray*}
+a_{0,i} &:=& j_i + e_{1,i}^Gr_i \in \zp \\
+b_{0,i} &:=& k_i + e_{1,i}^Hs_i \in \zq
+\end{eqnarray*}
+
+The proof is the tuple $\left( xG',xH',\{C_i^G\},\{C_i^H\}, \{e_{0,i}^G\}, \{e_{0,i}^H\}, \{a_{0,i}\}, \{a_{1,i}\}, \{b_{0,i}\}, \{b_{1,i}\} \right)$.
+
+\subsection{Verifier}
+Given a proof tuple, we first ensure the bit commitments faithfully represent the discrete logarithm commitments by checking that the following equations hold:
+\begin{eqnarray*}
+\sum_{i=0}^{n-1} 2^iC_i^G &=& xG' \in \mathbb{G} \\
+\sum_{i=0}^{n-1} 2^iC_i^H &=& xH' \in \mathbb{H}
+\end{eqnarray*}
+
+For each $i \in [0,n-1]$, compute the following:
+\begin{eqnarray*}
+e_{1,i}^G &:=& \hg\left( C_i^G, C_i^H, a_{1,i}G - e_{0,i}^GC_i^G, b_{1,i}H - e_{0,i}^HC_i^H \right) \in \zp \\
+e_{1,i}^H &:=& \hh\left( C_i^G, C_i^H, a_{1,i}G - e_{0,i}^GC_i^G, b_{1,i}H - e_{0,i}^HC_i^H \right) \in \zq \\
+(e_{0,i}^G)' &:=& \hg\left( C_i^G, C_i^H, a_{0,i}G - e_{1,i}^G(C_i^G-G'), b_{0,i}H - e_{1,i}^H(C_i^H-H') \right) \in \zp \\
+(e_{0,i}^H)' &:=& \hh\left( C_i^G, C_i^H, a_{0,i}G - e_{1,i}^G(C_i^G-G'), b_{0,i}H - e_{1,i}^H(C_i^H-H') \right) \in \zq
+\end{eqnarray*}
+Check that $(e_{0,i}^G)' = e_{0,i}^G$ and $(e_{0,i}^H)' = e_{0,i}^H$ from the proof tuple.
+
+If all of these checks are successful, the verifier accepts the proof. Otherwise, it rejects the proof. The verifier is assumed to have also checked each proof tuple element to ensure it belongs to the expected group, to account for a malicious prover.
+\end{document}
