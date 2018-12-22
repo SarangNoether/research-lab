@@ -7,6 +7,8 @@ import pyruff
 import multisig
 import musig
 
+MAX_AMOUNT = 2**64-1
+
 # Perform a complete spend test
 def spend(base,exponent,inputs):
     size = base**exponent # ring size
@@ -16,17 +18,27 @@ def spend(base,exponent,inputs):
     sp.exponent = exponent
     
     # prepare the spent inputs
-    input_list = [pyruff.Output(Scalar(random.randrange(0,2**64-1)))]*inputs
+    input_list = []
+    for i in range(inputs):
+        temp = pyruff.Output()
+        temp.gen_random(Scalar(random.randrange(0,MAX_AMOUNT)))
+        input_list.append(temp)
     output_list = []
 
     # prepare a destination output and change
     total_inputs = 0
     for output in input_list:
         total_inputs += int(output.amount)
-    output0 = random.randrange(0,total_inputs)
-    output1 = total_inputs - output0
-    output_list.append(pyruff.Output(Scalar(output0)))
-    output_list.append(pyruff.Output(Scalar(output1)))
+    amount0 = random.randrange(0,total_inputs)
+    amount1 = total_inputs - amount0
+
+    temp = pyruff.Output()
+    temp.gen_random(Scalar(amount0))
+    output_list.append(temp)
+
+    temp = pyruff.Output()
+    temp.gen_random(Scalar(amount1))
+    output_list.append(temp)
 
     sp.ii = random.randrange(0,size)
 
@@ -180,6 +192,30 @@ class TestPyRuff(unittest.TestCase):
         spend(2,1,2)
         spend(2,2,1)
         spend(2,2,2)
+
+    # Recover spend data from an output
+    def test_receive(self):
+        # generate recipient keys
+        priv_key = pyruff.SecretKey(random_scalar(),random_scalar())
+        pub_key = pyruff.elgamal_commit(priv_key.r1,priv_key.r)
+        A1 = pub_key[0]
+        A2 = pub_key[1]
+
+        # generate output data for a one-time address
+        y = random_scalar()
+        gy = G*y
+        h1 = hash_to_scalar('H1',A2*y,A1,A2,gy)
+        h2 = hash_to_scalar('H2',A2*y,A1,A2,gy)
+
+        # generate the output keys
+        out_pub_key = pyruff.elgamal_commit(priv_key.r1+h1,priv_key.r+h2)
+
+        # recover the spend data
+        out_h1 = hash_to_scalar('H1',gy*priv_key.r,A1,A2,gy)
+        out_h2 = hash_to_scalar('H2',gy*priv_key.r,A1,A2,gy)
+        out_priv_key = pyruff.SecretKey(priv_key.r+out_h2,priv_key.r1+out_h1)
+
+        self.assertEqual(out_pub_key,pyruff.elgamal_commit(out_priv_key.r1,out_priv_key.r))
 
 class TestMultisig(unittest.TestCase):
     # Verify a signature with 1 key

@@ -26,15 +26,16 @@ class SecretKey:
         return str(self.r)+str(self.r1)
 
 class Output:
-    sk = None
-    KI = None
-    PK = None
+    sk = None # secret key
+    mask = None # commitment mask
+    amount = None # commitment value
+    KI = None # key image
 
-    mask = None
-    CO = None
-    amount = None
-
-    def __init__(self,amount):
+    PK = None # public key
+    CO = None # commitment
+    
+    # generate an output to a random stealth address with a given amount
+    def gen_random(self,amount):
         if not isinstance(amount,Scalar):
             raise TypeError
         self.amount = amount
@@ -42,10 +43,10 @@ class Output:
         self.CO = G*amount + H*self.mask
         self.sk = SecretKey(random_scalar(),random_scalar())
         self.KI = G*self.sk.r1
-        self.PK = [H*self.sk.r+self.KI,G*self.sk.r]
+        self.PK = elgamal_commit(self.sk.r1,self.sk.r)
 
     def __str__(self):
-        return str(self.amount)+str(self.mask)+str(self.CO)+str(self.sk)+str(self.KI)+str(self.PK)
+        return str(self.PK)+str(self.CO)
 
 class F:
     KI = None # key image
@@ -540,6 +541,7 @@ def verify1(B,proof1,raw=False):
     else:
         return data
 
+# Helper functions
 def elgamal_encrypt(X,r):
     return [H*r+X,G*r]
 
