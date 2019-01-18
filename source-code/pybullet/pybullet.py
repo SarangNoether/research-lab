@@ -7,15 +7,21 @@ if not dumb25519.VERSION == 0.2:
 cache = '' # rolling transcript hash
 inv8 = Scalar(8).invert()
 
+# Add to a transcript hash
 def mash(s):
     global cache
     cache = hash_to_scalar(cache,s)
 
+# Clear the transcript hash
 def clear_cache():
     global cache
     cache = ''
 
-# turn a scalar into a vector of bit scalars
+# Turn a scalar into a vector of bit scalars
+# s: Scalar
+# N: int; number of bits
+#
+# returns: ScalarVector
 def scalar_to_bits(s,N):
     result = []
     for i in range(N-1,-1,-1):
@@ -26,18 +32,36 @@ def scalar_to_bits(s,N):
             s -= Scalar(2**i)
     return ScalarVector(list(reversed(result)))
 
-# generate a vector of powers of a scalar
+# Generate a vector of powers of a scalar
+# s: Scalar
+# l: int; number of powers to include
+#
+# returns: ScalarVector
 def exp_scalar(s,l):
     return ScalarVector([s**i for i in range(l)])
 
-# sum the powers of a scalar
+# Sum the powers of a scalar
+# s: Scalar
+# l: int; number of powers to include
+#
+# returns: Scalar; s^0+s^1+...+s^(l-1)
 def sum_scalar(s,l):
-    r = Scalar(0)
-    for i in range(l):
-        r += s**i
+    if not l & (l-1) == 0:
+        raise ValueError('We need l to be a power of 2!')
+
+    if l == 0:
+        return Scalar(0)
+    if l == 1:
+        return Scalar(1)
+
+    r = Scalar(1) + s
+    while l > 2:
+        s = s*s
+        r += s*r
+        l /= 2
     return r
 
-# perform an inner-product proof round
+# Perform an inner-product proof round
 # G,H: PointVector
 # U: Point
 # a,b: ScalarVector
@@ -68,7 +92,11 @@ def inner_product(data):
     
     return [G,H,U,a,b,L,R]
 
-# generate a multi-output proof
+# Generate a multi-output proof
+# data: [Scalar,Scalar] pairs; amount values and masks
+# N: number of bits in range
+#
+# returns: list of proof data
 def prove(data,N):
     clear_cache()
     M = len(data)
@@ -173,7 +201,11 @@ def prove(data,N):
         L.append(data_ip[-2])
         R.append(data_ip[-1])
 
-# verify a batch of multi-output proofs
+# Verify a batch of multi-output proofs
+# proofs: list of proof data lists
+# N: number of bits in range
+#
+# returns: True if all proofs are valid
 def verify(proofs,N):
     # determine the length of the longest proof
     max_MN = 2**max([len(proof[7]) for proof in proofs])
