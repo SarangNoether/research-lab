@@ -1,0 +1,182 @@
+#
+# Simulate different ring member selection algorithms
+#
+# - This code is for research purposes only.
+# - This code is released into the public domain with no warranty.
+
+import numpy
+import argparse
+import sys
+
+# Check version
+if sys.version_info[0] < 3:
+    raise RuntimeError('Must use Python 3!')
+
+# Parse options
+parser = argparse.ArgumentParser(description='Simulate ring member selection')
+parser.add_argument('--chain_size',default=1000000,type=int,help='Number of blocks in the chain')
+parser.add_argument('--block_time',default=120,type=int,help='Block time in seconds')
+parser.add_argument('--chain_data',help='Path to chain data file; each line is the number of outputs in a block')
+parser.add_argument('--window',default=5,type=int,help='Number of blocks in half window')
+parser.add_argument('-N',default=10000,type=int,help='Number of outputs to select')
+parser.add_argument('--model',required=True,choices=['real','geometric','head_skew','tail_skew'],help='Chain density model')
+parser.add_argument('--selection',required=True,choices=['partial_window','full_window','output_lineup'],help='Output selection model')
+args = parser.parse_args()
+
+# Distribution constants
+GAMMA_SHAPE = 19.28
+GAMMA_SCALE = 1.0/1.61
+GEOMETRIC_P = 0.25
+
+# Generate a chain using the desired model
+def generate_chain():
+    print('Using chain model',args.model)
+
+    if args.model == 'real':
+        try:
+            infile = open(args.chain_data,'r')
+        except:
+            raise Exception('Bad chain data file!')
+        temp = []
+        for line in infile:
+            temp.append(int(line.strip()))
+        chain = []
+        while len(chain) < args.chain_size:
+            chain.extend(temp)
+
+        return chain[:args.chain_size]
+
+    elif args.model == 'geometric':
+        return list(numpy.random.geometric(GEOMETRIC_P,args.chain_size))
+
+    elif args.model == 'tail_skew':
+        mean = int(numpy.exp(GAMMA_SCALE*GAMMA_SHAPE)/args.block_time) # mean of gamma distribution
+        temp = [1]*mean # empty head
+        temp.extend(list(numpy.random.geometric(GEOMETRIC_P,args.chain_size-mean))) # tail
+        return temp
+
+    elif args.model == 'head_skew':
+        mean = int(numpy.exp(GAMMA_SCALE*GAMMA_SHAPE)/args.block_time) # mean of gamma distribution
+        temp = list(numpy.random.geometric(GEOMETRIC_P,mean)) # head
+        temp.extend([1]*(args.chain_size-mean)) # empty tail
+        return temp
+
+    raise Exception('Invalid chain model!')
+
+# Make a gamma selection
+def gamma():
+    return numpy.random.gamma(shape=GAMMA_SHAPE,scale=GAMMA_SCALE)
+
+# Make a selection using a partial-window method
+def select_partial():
+    # Keep trying until we select a valid block
+    while True:
+        index = int(numpy.exp(gamma())/args.block_time) # block index, assuming constant arrival time
+        if index >= len(chain): # trying to select too far back
+            continue
+        if chain[index] == 0: # a truly empty block; redraw
+            continue
+        break
+
+    # Now select an output uniformly within the block and a partial window
+    window_offset = 0
+    for i in range(args.window):
+        if index-i == 0 or index+i == len(chain)-1:
+            break
+        if chain[index-i] > 1 or chain[index+i] > 1:
+            break
+        window_offset += 1
+
+    window_outputs = sum([chain[i] for i in range(index-window_offset,index+window_offset+1)])
+    if numpy.random.randint(0,window_outputs) < 2*window_offset+1:
+        coinbase = True
+    else:
+        coinbase = False
+
+    return index,coinbase
+
+# Make a selection using a full-window method
+def select_full(chain):
+    # Keep trying until we select a valid block
+    while True:
+        index = int(numpy.exp(gamma())/args.block_time) # block index, assuming constant arrival time
+        if index >= len(chain): # trying to select too far back
+            continue
+        if chain[index] == 0: # a truly empty block; redraw
+            continue
+        break
+
+    # Now select an output uniformly within the block and a partial window
+    window_low = max(index-args.window,0)
+    window_high = min(index+args.window,len(chain))
+
+    window_outputs = sum([chain[i] for i in range(window_low,window_high+1)])
+    if numpy.random.randint(0,window_outputs) < (window_high-window_low+1):
+        coinbase = True
+    else:
+        coinbase = False
+
+    return index,coinbase
+
+# Make a selection using an output-lineup method
+def select_lineup(chain):
+    output_time = args.block_time*args.chain_size/chain_sum # average time per output
+
+    # Keep trying until we select a valid block
+    while True:
+        index_output = int(numpy.exp(gamma())/output_time) # output index, assuming constant arrival time
+        if index_output >= chain_sum: # trying to select too far back
+            continue
+        else:
+            break
+
+    # Determine the block index
+    index = 0
+    tally = 0
+    while tally < index_output:
+        index += 1
+        tally += chain[index]
+
+    # Now select an output uniformly within the block
+    if numpy.random.randint(0,chain[index]) == 0:
+        coinbase = True
+    else:
+        coinbase = False
+
+    return index,coinbase
+
+
+#
+# HERE WE GO
+#
+
+# Initialize the chain
+print('Initializing chain...')
+chain = generate_chain()
+chain_sum = sum(chain)
+
+calc_less_than_mean = 0 # number of ring members whose block is newer than the gamma mean
+calc_coinbase = 0 # number of selected ring members that are coinbase
+
+print('Selecting ring members...')
+for i in range(args.N):
+    # Selection model
+    if args.selection == 'partial_window':
+        index,coinbase = select_partial()
+    elif args.selection == 'full_window':
+        index,coinbase = select_full()
+    elif args.selection == 'output_lineup':
+        index,coinbase = select_lineup()
+
+    # Mean check
+    if index < int(numpy.exp(GAMMA_SHAPE*GAMMA_SCALE)/args.block_time):
+        calc_less_than_mean += 1
+
+    # Coinbase check
+    if coinbase:
+        calc_coinbase += 1
+
+# Output statistics
+print('Block ages less than mean:',calc_less_than_mean/args.N)
+print('Coinbase in selection:',calc_coinbase/args.N)
+print('Coinbase on chain:',args.chain_size/sum(chain))
