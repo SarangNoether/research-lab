@@ -72,7 +72,7 @@ def select_partial():
     # Keep trying until we select a valid block
     while True:
         index = int(numpy.exp(gamma())/args.block_time) # block index, assuming constant arrival time
-        if index >= len(chain): # trying to select too far back
+        if index >= args.chain_size: # trying to select too far back
             continue
         if chain[index] == 0: # a truly empty block; redraw
             continue
@@ -81,7 +81,7 @@ def select_partial():
     # Now select an output uniformly within the block and a partial window
     window_offset = 0
     for i in range(args.window):
-        if index-i == 0 or index+i == len(chain)-1:
+        if index-i == 0 or index+i == args.chain_size-1:
             break
         if chain[index-i] > 1 or chain[index+i] > 1:
             break
@@ -96,11 +96,11 @@ def select_partial():
     return index,coinbase
 
 # Make a selection using a full-window method
-def select_full(chain):
+def select_full():
     # Keep trying until we select a valid block
     while True:
         index = int(numpy.exp(gamma())/args.block_time) # block index, assuming constant arrival time
-        if index >= len(chain): # trying to select too far back
+        if index >= args.chain_size: # trying to select too far back
             continue
         if chain[index] == 0: # a truly empty block; redraw
             continue
@@ -108,7 +108,7 @@ def select_full(chain):
 
     # Now select an output uniformly within the block and a partial window
     window_low = max(index-args.window,0)
-    window_high = min(index+args.window,len(chain))
+    window_high = min(index+args.window,args.chain_size)
 
     window_outputs = sum([chain[i] for i in range(window_low,window_high+1)])
     if numpy.random.randint(0,window_outputs) < (window_high-window_low+1):
@@ -119,7 +119,7 @@ def select_full(chain):
     return index,coinbase
 
 # Make a selection using an output-lineup method
-def select_lineup(chain):
+def select_lineup():
     output_time = args.block_time*args.chain_size/chain_sum # average time per output
 
     # Keep trying until we select a valid block
