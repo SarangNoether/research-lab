@@ -20,7 +20,7 @@ parser.add_argument('--chain_data',help='Path to chain data file; each line is t
 parser.add_argument('--window',default=5,type=int,help='Number of blocks in half window')
 parser.add_argument('-N',default=10000,type=int,help='Number of outputs to select')
 parser.add_argument('--model',required=True,choices=['real','geometric','head_skew','tail_skew'],help='Chain density model')
-parser.add_argument('--selection',required=True,choices=['partial_window','full_window','output_lineup'],help='Output selection model')
+parser.add_argument('--selection',required=True,choices=['partial_window','full_window','output_lineup','bias'],help='Output selection model')
 args = parser.parse_args()
 
 # Distribution constants
@@ -122,7 +122,7 @@ def select_full():
 def select_lineup():
     output_time = args.block_time*args.chain_size/chain_sum # average time per output
 
-    # Keep trying until we select a valid block
+    # Keep trying until we select a valid output
     while True:
         index_output = int(numpy.exp(gamma())/output_time) # output index, assuming constant arrival time
         if index_output >= chain_sum: # trying to select too far back
@@ -139,6 +139,30 @@ def select_lineup():
 
     # Now select an output uniformly within the block
     if numpy.random.randint(0,chain[index]) == 0:
+        coinbase = True
+    else:
+        coinbase = False
+
+    return index,coinbase
+
+# Make a selection using an output-lineup bias method
+def select_bias():
+    # Keep trying until we select a valid block
+    while True:
+        index = int(numpy.exp(gamma())/args.block_time) # block index, assuming constant arrival time
+        if index >= args.chain_size: # trying to select too far back
+            continue
+        else:
+            break
+
+    # Determine the highest output index in the range
+    index_output = 0
+    block_range = min(args.chain_size,2*index+2)
+    for i in range(block_range):
+        index_output += chain[i]
+
+    # Now select an output uniformly within the range
+    if numpy.random.randint(0,index_output) < block_range:
         coinbase = True
     else:
         coinbase = False
@@ -167,6 +191,8 @@ for i in range(args.N):
         index,coinbase = select_full()
     elif args.selection == 'output_lineup':
         index,coinbase = select_lineup()
+    elif args.selection == 'bias':
+        index,coinbase = select_bias()
 
     # Mean check
     if index < int(numpy.exp(GAMMA_SHAPE*GAMMA_SCALE)/args.block_time):
