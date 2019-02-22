@@ -14,13 +14,13 @@ if sys.version_info[0] < 3:
 
 # Parse options
 parser = argparse.ArgumentParser(description='Simulate ring member selection')
-parser.add_argument('--chain_size',default=1000000,type=int,help='Number of blocks in the chain')
+parser.add_argument('--chain_size',default=500000,type=int,help='Number of blocks in the chain')
 parser.add_argument('--block_time',default=120,type=int,help='Block time in seconds')
 parser.add_argument('--chain_data',help='Path to chain data file; each line is the number of outputs in a block')
 parser.add_argument('--window',default=5,type=int,help='Number of blocks in half window')
 parser.add_argument('-N',default=10000,type=int,help='Number of outputs to select')
-parser.add_argument('--model',required=True,choices=['real','geometric','head_skew','tail_skew'],help='Chain density model')
-parser.add_argument('--selection',required=True,choices=['partial_window','full_window','output_lineup','bias'],help='Output selection model')
+parser.add_argument('--density',required=True,choices=['real','geometric','feast','famine'],help='Chain density model')
+parser.add_argument('--selection',required=True,choices=['partial','full','lineup','bias'],help='Output selection algorithm')
 args = parser.parse_args()
 
 # Distribution constants
@@ -28,11 +28,11 @@ GAMMA_SHAPE = 19.28
 GAMMA_SCALE = 1.0/1.61
 GEOMETRIC_P = 0.25
 
-# Generate a chain using the desired model
+# Generate a chain using the desired density
 def generate_chain():
-    print('Using chain model',args.model)
+    print('Using chain density',args.density)
 
-    if args.model == 'real':
+    if args.density == 'real':
         try:
             infile = open(args.chain_data,'r')
         except:
@@ -46,16 +46,16 @@ def generate_chain():
 
         return chain[:args.chain_size]
 
-    elif args.model == 'geometric':
+    elif args.density == 'geometric':
         return list(numpy.random.geometric(GEOMETRIC_P,args.chain_size))
 
-    elif args.model == 'tail_skew':
+    elif args.density == 'famine':
         mean = int(numpy.exp(GAMMA_SCALE*GAMMA_SHAPE)/args.block_time) # mean of gamma distribution
         temp = [1]*mean # empty head
         temp.extend(list(numpy.random.geometric(GEOMETRIC_P,args.chain_size-mean))) # tail
         return temp
 
-    elif args.model == 'head_skew':
+    elif args.density == 'feast':
         mean = int(numpy.exp(GAMMA_SCALE*GAMMA_SHAPE)/args.block_time) # mean of gamma distribution
         temp = list(numpy.random.geometric(GEOMETRIC_P,mean)) # head
         temp.extend([1]*(args.chain_size-mean)) # empty tail
@@ -183,13 +183,15 @@ calc_less_than_mean = 0 # number of ring members whose block is newer than the g
 calc_coinbase = 0 # number of selected ring members that are coinbase
 
 print('Selecting ring members...')
+print('Using selection algorithm',args.selection)
+print('Selecting',args.N,'outputs from chain size',len(chain))
 for i in range(args.N):
     # Selection model
-    if args.selection == 'partial_window':
+    if args.selection == 'partial':
         index,coinbase = select_partial()
-    elif args.selection == 'full_window':
+    elif args.selection == 'full':
         index,coinbase = select_full()
-    elif args.selection == 'output_lineup':
+    elif args.selection == 'lineup':
         index,coinbase = select_lineup()
     elif args.selection == 'bias':
         index,coinbase = select_bias()
