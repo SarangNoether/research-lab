@@ -21,7 +21,12 @@ parser.add_argument('--window',default=5,type=int,help='Number of blocks in half
 parser.add_argument('-N',default=10000,type=int,help='Number of outputs to select')
 parser.add_argument('--density',required=True,choices=['real','geometric','feast','famine'],help='Chain density model')
 parser.add_argument('--selection',required=True,choices=['partial','full','lineup','bias'],help='Output selection algorithm')
+parser.add_argument('--types',default=5,type=int,help='Number of output types to track')
 args = parser.parse_args()
+
+# Python3 rounding is silly
+def rnd(x,n):
+    return int(round(x*(10**n)))/10**n
 
 # Distribution constants
 GAMMA_SHAPE = 19.28
@@ -177,10 +182,15 @@ def select_bias():
 # Initialize the chain
 print('Initializing chain...')
 chain = generate_chain()
-chain_sum = sum(chain)
+chain_sum = sum(chain) # total outputs on the chain
+chain_types = [0]*args.types # outputs on the chain by type
+for i in chain:
+    if i in range(1,args.types+1):
+        chain_types[i-1] += i
 
 calc_less_than_mean = 0 # number of ring members whose block is newer than the gamma mean
 calc_coinbase = 0 # number of selected ring members that are coinbase
+calc_type = [0]*args.types # output types in selection
 
 print('Selecting ring members...')
 print('Using selection algorithm',args.selection)
@@ -204,7 +214,13 @@ for i in range(args.N):
     if coinbase:
         calc_coinbase += 1
 
+    # Type check
+    if chain[index] in range(1,args.types+1):
+        calc_type[chain[index]-1] += 1
+
 # Output statistics
-print('Block ages less than mean:',calc_less_than_mean/args.N)
-print('Coinbase in selection:',calc_coinbase/args.N)
-print('Coinbase on chain:',args.chain_size/sum(chain))
+print('Block ages less than mean:',rnd(calc_less_than_mean/args.N,4))
+print('Coinbase in selection:',rnd(calc_coinbase/args.N,4))
+print('Coinbase on chain:',rnd(args.chain_size/sum(chain),4))
+print('Types in selection:',[rnd(calc_type[i]/args.N,4) for i in range(len(calc_type))])
+print('Types on chain:',[rnd(chain_types[i]/sum(chain),4) for i in range(args.types)])
