@@ -36,53 +36,43 @@ class TestBulletOps(unittest.TestCase):
 
 class TestBullet(unittest.TestCase):
     def test_prove_verify_m_1_n_4(self):
-        M = 1
-        N = 4
-        data = [[Scalar(random.randint(0,2**N-1)),random_scalar()] for i in range(M)]
-        pybullet.verify([pybullet.prove(data,N)],N)
+        pybullet.N = 4
+
+        proof_A,state = pybullet.prove_A(Scalar(random.randint(0,2**pybullet.N-1)),random_scalar(),0)
+        proof = pybullet.aggregate_A([proof_A])
+        proof_B,state = pybullet.prove_B(state,proof.y,proof.z)
+        proof = pybullet.aggregate_B([proof_B],proof)
+        proof_C = pybullet.prove_C(state,proof.x)
+        proof = pybullet.aggregate_C([proof_C],proof)
+
+        pybullet.verify([proof])
 
     def test_prove_verify_m_2_n_4(self):
         M = 2
-        N = 4
-        data = [[Scalar(random.randint(0,2**N-1)),random_scalar()] for i in range(M)]
-        pybullet.verify([pybullet.prove(data,N)],N)
+        pybullet.N = 4
 
-    def test_invalid_value(self):
-        M = 1
-        N = 4
-        data = [[Scalar(random.randint(2**N,2**(N+1)-1)),random_scalar()]]
-        with self.assertRaises(ArithmeticError):
-            pybullet.verify([pybullet.prove(data,N)],N)
+        proofs_A = []
+        proofs_B = []
+        proofs_C = []
+        states = [] # not available to the dealer
 
-    def test_batch_2_m_1_n_4(self):
-        M = 1
-        N = 4
-        data = [[Scalar(random.randint(0,2**N-1)),random_scalar()] for i in range(M)]
-        proof1 = pybullet.prove(data,N)
-        data = [[Scalar(random.randint(0,2**N-1)),random_scalar()] for i in range(M)]
-        proof2 = pybullet.prove(data,N)
-        pybullet.verify([proof1,proof2],N)
+        for k in range(M):
+            proof_A,state = pybullet.prove_A(Scalar(random.randint(0,2**pybullet.N-1)),random_scalar(),k)
+            proofs_A.append(proof_A)
+            states.append(state)
+        proof = pybullet.aggregate_A(proofs_A)
+        for k in range(M):
+            proof_B,state = pybullet.prove_B(states[k],proof.y,proof.z)
+            proofs_B.append(proof_B)
+            states[k] = state
+        proof = pybullet.aggregate_B(proofs_B,proof)
+        for k in range(M):
+            proof_C = pybullet.prove_C(states[k],proof.x)
+            proofs_C.append(proof_C)
+            states[k] = state
+        proof = pybullet.aggregate_C(proofs_C,proof)
 
-    def test_batch_2_m_1_2_n_4(self):
-        M = 1
-        N = 4
-        data = [[Scalar(random.randint(0,2**N-1)),random_scalar()] for i in range(M)]
-        proof1 = pybullet.prove(data,N)
-        M = 2
-        data = [[Scalar(random.randint(0,2**N-1)),random_scalar()] for i in range(M)]
-        proof2 = pybullet.prove(data,N)
-        pybullet.verify([proof1,proof2],N)
-
-    def test_invalid_batch_2_m_1_2_n_4(self):
-        M = 1
-        N = 4
-        data = [[Scalar(random.randint(0,2**N-1)),random_scalar()] for i in range(M)]
-        proof1 = pybullet.prove(data,N)
-        M = 2
-        data = [[Scalar(random.randint(2**N,2**(N+1)-1)),random_scalar()] for i in range(M)]
-        proof2 = pybullet.prove(data,N)
-        with self.assertRaises(ArithmeticError):
-            pybullet.verify([proof1,proof2],N)
+        pybullet.verify([proof])
 
 for test in [TestBulletOps,TestBullet]:
     unittest.TextTestRunner(verbosity=2,failfast=True).run(unittest.TestLoader().loadTestsFromTestCase(test))
