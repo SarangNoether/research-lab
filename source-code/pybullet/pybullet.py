@@ -41,7 +41,7 @@ class Proof:
     b = None
     t = None
     
-    # challenges
+    # challenges; only used for state
     x = None
     y = None
     z = None
@@ -207,6 +207,10 @@ def prove_A(v,gamma,k):
 #
 # returns: ProofB object
 def prove_B(state,y,z):
+    # check for bad challenges
+    if y == Scalar(0) or z == Scalar(0):
+        raise ValueError('Bad challenge!')
+
     # curve points
     G = dumb25519.G
     H = hash_to_point('pybullet H')
@@ -259,6 +263,10 @@ def prove_B(state,y,z):
 #
 # returns: ProofC object
 def prove_C(state,x):
+    # check for bad challenge
+    if x == Scalar(0):
+        raise ValueError('Bad challenge!')
+
     # restore state
     tau1 = state.tau1
     tau2 = state.tau2
@@ -434,7 +442,7 @@ def verify(proofs):
         weight_y = random_scalar()
         weight_z = random_scalar()
         if weight_y == Scalar(0) or weight_z == Scalar(0):
-            raise ArithmeticError
+            raise ValueError
 
         # reconstruct all challenges
         for v in V:
@@ -442,23 +450,23 @@ def verify(proofs):
         mash(A)
         mash(S)
         if cache == Scalar(0):
-            raise ArithmeticError
+            raise ValueError
         y = cache
         y_inv = y.invert()
         mash('')
         if cache == Scalar(0):
-            raise ArithmeticError
+            raise ValueError
         z = cache
         mash(T1)
         mash(T2)
         if cache == Scalar(0):
-            raise ArithmeticError
+            raise ValueError
         x = cache
         mash(taux)
         mash(mu)
         mash(t)
         if cache == Scalar(0):
-            raise ArithmeticError
+            raise ValueError
         x_ip = cache
 
         y0 += taux*weight_y
@@ -488,7 +496,7 @@ def verify(proofs):
             mash(L[i])
             mash(R[i])
             if cache == Scalar(0):
-                raise ArithmeticError
+                raise ValueError
             W.append(cache)
         W_inv = W.invert()
 
@@ -535,7 +543,7 @@ def verify(proofs):
 
     # at least one proof is invalid
     if not dumb25519.multiexp(scalars,points) == Z:
-        raise ArithmeticError('Bad z check!')
+        raise ArithmeticError('Invalid proof!')
 
     # all proofs are valid
     return True
